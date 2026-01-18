@@ -1,24 +1,27 @@
 import streamlit as st
 from supabase import create_client, Client
+import pandas as pd
+import sqlite3
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, date
+import hashlib
+import os
 
 # --- CLOUD DATABASE CONNECTION ---
-# Replace these with your actual Supabase details
 url: str = "https://hkifcumhbgfqszcgvrrw.supabase.co"
 key: str = "sb_publishable_-n7XYPCit-RvNs4lhE6IAQ_cQElRuHI"
 supabase: Client = create_client(url, key)
 
 # --- DATABASE HELPER FUNCTIONS ---
-
 def fetch_leads():
     """Fetches all leads from the Supabase 'leads' table"""
     try:
-        # This calls the Supabase API to get all data from the leads table
         response = supabase.table("leads").select("*").execute()
-        # We convert the result into a Pandas DataFrame for the CRM to use
         return pd.DataFrame(response.data)
     except Exception as e:
         st.error(f"Error fetching leads: {e}")
-        return pd.DataFrame() # Returns an empty table if there is an error
+        return pd.DataFrame()
 
 def save_lead(data_dict):
     """Saves a new lead dictionary to Supabase"""
@@ -29,35 +32,241 @@ def save_lead(data_dict):
         st.error(f"Error saving lead: {e}")
         return False
 
-# Example: How to save a lead to the cloud
-def save_lead_to_cloud(data_dict):
-    try:
-        supabase.table("leads").insert(data_dict).execute()
-        st.success("Lead saved to Cloud!")
-    except Exception as e:
-        st.error(f"Cloud Error: {e}")
-
-# Example: How to fetch leads from the cloud
-def fetch_leads_from_cloud():
-    response = supabase.table("leads").select("*").execute()
-    return pd.DataFrame(response.data)
-import pandas as pd
-import sqlite3
-import plotly.express as px
-from datetime import datetime, date
-import hashlib
-import os
-
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Agency CRM Pro", page_icon="🇮🇳", layout="wide")
+st.set_page_config(
+    page_title="Agency CRM Pro", 
+    page_icon="🚀", 
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# --- CUSTOM CSS ---
+# --- MODERN ANIMATED CSS ---
 st.markdown("""
-    <style>
-        .block-container {padding-top: 1rem;}
-        h1 {color: #2E4053;}
-        .stMetric {background-color: #F4F6F7; padding: 10px; border-radius: 5px;}
-    </style>
+<style>
+    /* Import Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Global Styles */
+    * {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* Hide Streamlit Branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Main Container */
+    .block-container {
+        padding: 2rem 3rem;
+        max-width: 1400px;
+    }
+    
+    /* Smooth Page Transitions */
+    .main {
+        animation: fadeIn 0.5s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Title Styling */
+    h1, h2, h3 {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 700;
+        animation: slideIn 0.6s ease-out;
+    }
+    
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(-20px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    
+    /* Card Styling with Hover Effect */
+    .stMetric {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
+        transition: all 0.3s ease;
+        animation: scaleIn 0.5s ease-out;
+    }
+    
+    .stMetric:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 48px rgba(102, 126, 234, 0.3);
+    }
+    
+    @keyframes scaleIn {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+    }
+    
+    .stMetric label {
+        color: rgba(255, 255, 255, 0.9) !important;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .stMetric [data-testid="stMetricValue"] {
+        color: white !important;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    
+    /* Button Styling */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 0.6rem 2rem;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+    
+    /* Form Inputs */
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea,
+    .stSelectbox > div > div > select,
+    .stNumberInput > div > div > input {
+        border-radius: 10px;
+        border: 2px solid #e0e0e0;
+        padding: 0.8rem;
+        transition: all 0.3s ease;
+    }
+    
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus,
+    .stSelectbox > div > div > select:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Tab Styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 1rem;
+        background: transparent;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 10px;
+        padding: 0.8rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: none;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white !important;
+        transform: scale(1.05);
+    }
+    
+    /* Data Editor Styling */
+    .stDataFrame {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+    
+    /* Alert Boxes */
+    .stAlert {
+        border-radius: 12px;
+        border-left: 4px solid #667eea;
+        animation: slideIn 0.4s ease-out;
+    }
+    
+    /* Warning Box Enhancement */
+    [data-testid="stNotification"] {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 1rem;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+    }
+    
+    /* Success Box */
+    .element-container:has(.stSuccess) {
+        animation: bounceIn 0.6s ease-out;
+    }
+    
+    @keyframes bounceIn {
+        0% { transform: scale(0.3); opacity: 0; }
+        50% { transform: scale(1.05); }
+        70% { transform: scale(0.9); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    
+    /* Progress Bar */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        border-radius: 10px;
+    }
+    
+    /* Divider */
+    hr {
+        margin: 2rem 0;
+        border: none;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #667eea, transparent);
+    }
+    
+    /* Logo/Header Area */
+    .header-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+        animation: slideDown 0.6s ease-out;
+    }
+    
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Info Cards for Pipeline */
+    .pipeline-card {
+        background: white;
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+        border-left: 4px solid #667eea;
+        animation: fadeInUp 0.5s ease-out;
+    }
+    
+    .pipeline-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
 """, unsafe_allow_html=True)
 
 # --- DATABASE SETUP ---
@@ -67,20 +276,27 @@ def get_connection():
 def init_db():
     conn = get_connection()
     c = conn.cursor()
-    # Leads Table with Follow-up Date
     c.execute('''CREATE TABLE IF NOT EXISTS leads (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        company_name TEXT, contact_person TEXT, mobile TEXT, alt_mobile TEXT,
-        email TEXT, gst_no TEXT, address TEXT, service_interest TEXT, 
-        projected_value REAL, status TEXT, 
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_name TEXT,
+        contact_person TEXT,
+        mobile TEXT,
+        alt_mobile TEXT,
+        email TEXT,
+        gst_no TEXT,
+        address TEXT,
+        service_interest TEXT,
+        projected_value REAL,
+        status TEXT,
         next_followup TEXT,
-        date_added TEXT, assigned_to TEXT, remarks TEXT
+        date_added TEXT,
+        assigned_to TEXT,
+        remarks TEXT
     )''')
-    # Users Table
     c.execute('''CREATE TABLE IF NOT EXISTS users (
-        username TEXT PRIMARY KEY, password TEXT, role TEXT)''')
-    
-    # Default Admin
+        username TEXT PRIMARY KEY,
+        password TEXT,
+        role TEXT)''')
     hashed_pw = hashlib.sha256("admin123".encode()).hexdigest()
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?,?,?)", 
               ('admin', hashed_pw, 'Admin'))
@@ -102,7 +318,8 @@ def add_user(username, password, role):
     c = conn.cursor()
     hashed_pw = hashlib.sha256(password.encode()).hexdigest()
     try:
-        c.execute("INSERT INTO users (username, password, role) VALUES (?,?,?)", (username, hashed_pw, role))
+        c.execute("INSERT INTO users (username, password, role) VALUES (?,?,?)", 
+                  (username, hashed_pw, role))
         conn.commit()
         return True
     except:
@@ -118,280 +335,452 @@ if 'logged_in' not in st.session_state:
 
 # --- LOGIN PAGE ---
 if not st.session_state['logged_in']:
-    col1, col2, col3 = st.columns([1,2,1])
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if os.path.exists("logo.png"):
-            st.image("logo.png", width=150)
-        st.title("🇮🇳 Agency CRM Login")
+        st.markdown("<div style='text-align: center; padding: 2rem 0;'>", unsafe_allow_html=True)
+        st.markdown("# 🚀 Agency CRM Pro")
+        st.markdown("### Welcome Back!")
+        st.markdown("</div>", unsafe_allow_html=True)
         
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        if st.button("Login", use_container_width=True):
-            role = login_user(username, password)
-            if role:
-                st.session_state['logged_in'] = True
-                st.session_state['username'] = username
-                st.session_state['role'] = role
-                st.rerun()
-            else:
-                st.error("Invalid Credentials")
+        with st.container():
+            username = st.text_input("👤 Username", placeholder="Enter your username")
+            password = st.text_input("🔒 Password", type="password", placeholder="Enter your password")
+            
+            if st.button("🚀 Login", use_container_width=True):
+                role = login_user(username, password)
+                if role:
+                    st.session_state['logged_in'] = True
+                    st.session_state['username'] = username
+                    st.session_state['role'] = role
+                    st.success("Login Successful! 🎉")
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid Credentials")
 
-# --- MAIN DASHBOARD ---
 # --- MAIN DASHBOARD ---
 else:
-    # 1. FIXED TOP BAR LAYOUT
-    # [1.5, 5, 2] gives specific space for Logo, Title, and User Info
-    col_logo, col_title, col_user = st.columns([1.5, 5, 2])
+    # HEADER SECTION
+    st.markdown("""
+    <div class='header-container'>
+        <div style='display: flex; justify-content: space-between; align-items: center;'>
+            <div>
+                <h1 style='color: white; margin: 0; -webkit-text-fill-color: white;'>🚀 Agency Sales Manager</h1>
+                <p style='color: rgba(255,255,255,0.9); margin: 0.5rem 0 0 0;'>Manage your leads and close more deals</p>
+            </div>
+            <div style='text-align: right;'>
+                <p style='color: white; margin: 0; font-weight: 600;'>👤 {}</p>
+                <p style='color: rgba(255,255,255,0.8); margin: 0; font-size: 0.9rem;'>{}</p>
+            </div>
+        </div>
+    </div>
+    """.format(st.session_state['username'], st.session_state['role']), unsafe_allow_html=True)
     
-    with col_logo:
-        if os.path.exists("logo.png"):
-            st.image("logo.png", width=100)
-        else:
-            st.write("🏢 **CRM**")
-
-    with col_title:
-        # Using a single line for the Title to prevent wrapping
-        st.markdown(f"<h2 style='margin-bottom:0;'>Agency Sales Manager</h2>", unsafe_allow_html=True)
-        st.caption("Sales & Lead Management System")
-
-    with col_user:
-        # We wrap the User Info and Logout button in a clean container
-        # 'use_container_width' ensures the button fits perfectly
-        st.markdown(f"**👤 {st.session_state['username']}** ({st.session_state['role']})")
-        if st.button("🚪 Logout", use_container_width=True, key="logout_fixed"):
-            st.session_state['logged_in'] = False
-            st.rerun()
-
-    st.divider() # Adds a clean separation line
-
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "📊 Dashboard", "🌪️ Pipeline", "➕ New Lead", "🗂️ Lead Directory", "📥 Bulk Upload", "⚙️ Admin"
+    if st.button("🚪 Logout", key="logout_btn"):
+        st.session_state['logged_in'] = False
+        st.rerun()
+    
+    
+    # CREATE TABS
+    tabs = st.tabs([
+        "📊 Dashboard",
+        "🔥 Pipeline",
+        "➕ New Lead",
+        "📁 Lead Directory",
+        "📥 Bulk Upload",
+        "⚙️ Settings"
     ])
-
-    # 1. DASHBOARD (Enhanced)
+    
+    tab1, tab2, tab3, tab4, tab5, tab6 = tabs
+    
+    # --- Tab 1: DASHBOARD ---
     with tab1:
         df = pd.read_sql_query("SELECT * FROM leads", get_connection())
         
-        # Section A: Today's Reminders (The "Useful" Part)
-        st.subheader("⚠️ Tasks for Today")
+        # Tasks Section
+        st.markdown("### ⚠️ Today's Follow-ups")
         today_str = datetime.now().strftime("%Y-%m-%d")
         
         if not df.empty:
-            # Filter for leads where follow-up is today or past due, AND status is not Closed
             reminders = df[
                 (df['next_followup'] <= today_str) & 
                 (~df['status'].isin(['Won', 'Lost']))
             ]
             
             if not reminders.empty:
-                st.warning(f"You have {len(reminders)} pending follow-ups!")
-                st.dataframe(reminders[['company_name', 'contact_person', 'mobile', 'next_followup', 'status']], hide_index=True)
+                st.warning(f"🔔 You have **{len(reminders)} pending follow-ups** today!")
+                
+                for idx, row in reminders.iterrows():
+                    with st.container():
+                        col1, col2, col3, col4 = st.columns([3, 2, 2, 2])
+                        with col1:
+                            st.markdown(f"**🏢 {row['company_name']}**")
+                        with col2:
+                            st.markdown(f"👤 {row['contact_person']}")
+                        with col3:
+                            st.markdown(f"📞 {row['mobile']}")
+                        with col4:
+                            st.markdown(f"📅 {row['next_followup']}")
+                    st.markdown("---")
             else:
-                st.success("🎉 No pending calls for today. Great job!")
-
-            st.divider()
-
-            # Section B: Financials & Target
+                st.success("🎉 **All caught up!** No pending follow-ups for today.")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Metrics
             total = df['projected_value'].sum()
             won = df[df['status'] == 'Won']['projected_value'].sum()
-            target = 1000000 # Example Monthly Target: 10 Lakhs
-            progress = min(won / target, 1.0)
+            target = 1000000
+            progress = min(won / target, 1.0) if target > 0 else 0
+            win_rate = (len(df[df['status']=='Won'])/len(df)*100) if len(df) > 0 else 0
             
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Pipeline Value", f"₹{total:,.0f}")
-            c2.metric("Revenue Won", f"₹{won:,.0f}")
-            c3.metric("Win Rate", f"{(len(df[df['status']=='Won'])/len(df)*100):.1f}%")
+            col1, col2, col3, col4 = st.columns(4)
             
-            st.caption(f"🎯 Monthly Target Progress (Goal: ₹{target:,.0f})")
+            with col1:
+                st.metric(
+                    label="💰 Pipeline Value",
+                    value=f"₹{total/1000:.1f}K",
+                    delta=f"{len(df)} Leads"
+                )
+            
+            with col2:
+                st.metric(
+                    label="✅ Revenue Won",
+                    value=f"₹{won/1000:.1f}K",
+                    delta=f"{len(df[df['status']=='Won'])} Deals"
+                )
+            
+            with col3:
+                st.metric(
+                    label="🎯 Win Rate",
+                    value=f"{win_rate:.1f}%",
+                    delta="Target: 30%"
+                )
+            
+            with col4:
+                st.metric(
+                    label="📈 Target Progress",
+                    value=f"{(progress*100):.0f}%",
+                    delta=f"Goal: ₹{target/1000}K"
+                )
+            
+            # Progress Bar
+            st.markdown("### 🎯 Monthly Target Progress")
             st.progress(progress)
+            st.caption(f"₹{won:,.0f} of ₹{target:,.0f} target achieved")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
             
             # Charts
-            g1, g2 = st.columns(2)
-            with g1: st.plotly_chart(px.pie(df, names='service_interest', title="Services", hole=0.4), use_container_width=True)
-            with g2: st.plotly_chart(px.bar(df, x='status', color='status', title="Lead Stages"), use_container_width=True)
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("### 📊 Services Distribution")
+                fig = px.pie(
+                    df, 
+                    names='service_interest', 
+                    hole=0.4,
+                    color_discrete_sequence=px.colors.sequential.Purples_r
+                )
+                fig.update_traces(textposition='inside', textinfo='percent+label')
+                fig.update_layout(showlegend=False, height=350)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                st.markdown("### 📈 Lead Status")
+                status_counts = df['status'].value_counts()
+                fig = go.Figure(data=[
+                    go.Bar(
+                        x=status_counts.index,
+                        y=status_counts.values,
+                        marker_color=['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a']
+                    )
+                ])
+                fig.update_layout(
+                    showlegend=False,
+                    height=350,
+                    xaxis_title="Status",
+                    yaxis_title="Count"
+                )
+                st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("Add leads to see analytics.")
-
-    # 2. PIPELINE (Kanban)
+            st.info("📝 No leads yet. Add your first lead to get started!")
+    
+    # --- Tab 2: PIPELINE ---
     with tab2:
-        st.header("Deal Pipeline")
+        st.markdown("### 🔥 Deal Pipeline")
         df = pd.read_sql_query("SELECT * FROM leads", get_connection())
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.subheader("❄️ New / Contacted")
-            for _, r in df[df['status'].isin(['New', 'Contacted'])].iterrows():
-                st.info(f"**{r['company_name']}**\n\n₹{r['projected_value']:,.0f} | {r['contact_person']}")
-        with c2:
-            st.subheader("🔥 In Negotiation")
-            for _, r in df[df['status'].isin(['Proposal', 'Negotiation'])].iterrows():
-                st.warning(f"**{r['company_name']}**\n\n₹{r['projected_value']:,.0f} | {r['service_interest']}")
-        with c3:
-            st.subheader("✅ Won Deals")
-            for _, r in df[df['status'] == 'Won'].iterrows():
-                st.success(f"**{r['company_name']}**\n\n₹{r['projected_value']:,.0f}")
-
-    # --- Tab 3: New Lead ---
-with tab3:
-    st.header("📝 Register New Lead")
-    # clear_on_submit=True resets the form after success
-    with st.form("add_lead", clear_on_submit=True):
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            comp = st.text_input("Company Name*")
-            cont = st.text_input("Contact Person")
-            gst = st.text_input("GST No.")
-        with c2:
-            mob = st.text_input("Mobile* (10 digits)")
-            alt = st.text_input("Alt Mobile")
-            email = st.text_input("Email")
-        with c3:
-            serv = st.selectbox("Service", ["SEO", "PPC", "Social Media", "Web Dev", "App Dev"])
-            val = st.number_input("Value (₹)", step=5000)
-            stat = st.selectbox("Status", ["New", "Contacted", "Proposal", "Negotiation", "Won", "Lost"])
-        
-        c4, c5 = st.columns(2)
-        with c4: 
-            f_date = st.date_input("Next Follow-Up Date", min_value=date.today())
-        with c5:
-            addr = st.text_area("Address")
-        
-        rem = st.text_area("Remarks")
-        
-        if st.form_submit_button("Save Lead"):
-            if comp and mob:
-                # 1. Create the data dictionary for Supabase
-                new_lead_data = {
-                    "company_name": comp,
-                    "contact_person": cont,
-                    "mobile": mob,
-                    "alt_mobile": alt,
-                    "email": email,
-                    "gst_no": gst,
-                    "address": addr,
-                    "service_interest": serv,
-                    "projected_value": float(val),
-                    "status": stat,
-                    "next_followup": str(f_date), # Convert date object to string
-                    "date_added": datetime.now().strftime("%Y-%m-%d"),
-                    "assigned_to": st.session_state.get('username', 'Admin'),
-                    "remarks": rem
-                }
-                
-                # 2. Use the Supabase client to insert the data
-                try:
-                    response = supabase.table("leads").insert(new_lead_data).execute()
-                    
-                    if response.data:
-                        st.success(f"✅ Lead for {comp} added to Cloud!")
-                        # This forces the app to refresh and fetch the new data
-                        st.rerun() 
-                    else:
-                        st.error("❌ Failed to save. Check your connection.")
-                except Exception as e:
-                    st.error(f"❌ Database Error: {e}")
-            else:
-                st.error("⚠️ Company Name and Mobile are required!")
-
-    # 4. VIEW LEADS (User Friendly WhatsApp Link)
-    with tab4:
-        st.header("🗂️ Lead Directory")
-        
-        # 1. Fetch data from Supabase Cloud
-        df = fetch_leads() # This uses the function we defined earlier
         
         if not df.empty:
-            # --- THE FIX: Convert strings to Date objects to prevent crashing ---
-            df['next_followup'] = pd.to_datetime(df['next_followup']).dt.date
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("#### 🆕 New / Contacted")
+                new_leads = df[df['status'].isin(['New', 'Contacted'])]
+                for _, r in new_leads.iterrows():
+                    st.markdown(f"""
+                    <div class='pipeline-card' style='border-left-color: #4facfe;'>
+                        <h4 style='margin: 0; color: #333;'>{r['company_name']}</h4>
+                        <p style='margin: 0.5rem 0; color: #666;'>💰 ₹{r['projected_value']:,.0f}</p>
+                        <p style='margin: 0; color: #999; font-size: 0.9rem;'>👤 {r['contact_person']}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                if len(new_leads) == 0:
+                    st.info("No new leads")
+            
+            with col2:
+                st.markdown("#### 🔥 In Negotiation")
+                hot_leads = df[df['status'].isin(['Proposal', 'Negotiation'])]
+                for _, r in hot_leads.iterrows():
+                    st.markdown(f"""
+                    <div class='pipeline-card' style='border-left-color: #f093fb;'>
+                        <h4 style='margin: 0; color: #333;'>{r['company_name']}</h4>
+                        <p style='margin: 0.5rem 0; color: #666;'>💰 ₹{r['projected_value']:,.0f}</p>
+                        <p style='margin: 0; color: #999; font-size: 0.9rem;'>📦 {r['service_interest']}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                if len(hot_leads) == 0:
+                    st.info("No active negotiations")
+            
+            with col3:
+                st.markdown("#### ✅ Won Deals")
+                won_leads = df[df['status'] == 'Won']
+                for _, r in won_leads.iterrows():
+                    st.markdown(f"""
+                    <div class='pipeline-card' style='border-left-color: #43e97b;'>
+                        <h4 style='margin: 0; color: #333;'>{r['company_name']}</h4>
+                        <p style='margin: 0.5rem 0; color: #666;'>💰 ₹{r['projected_value']:,.0f}</p>
+                        <p style='margin: 0; color: #999; font-size: 0.9rem;'>🎉 Closed</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                if len(won_leads) == 0:
+                    st.info("No won deals yet")
+        else:
+            st.info("📝 No leads in pipeline")
+    
+    # --- Tab 3: NEW LEAD ---
+    with tab3:
+        st.markdown("### 📝 Add New Lead")
+        
+        with st.form("add_lead", clear_on_submit=True):
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                comp = st.text_input("🏢 Company Name*", placeholder="Acme Corp")
+                cont = st.text_input("👤 Contact Person", placeholder="John Doe")
+                gst = st.text_input("📄 GST Number", placeholder="22AAAAA0000A1Z5")
+            
+            with col2:
+                mob = st.text_input("📞 Mobile*", placeholder="9876543210")
+                alt = st.text_input("📱 Alt Mobile", placeholder="9876543211")
+                email = st.text_input("📧 Email", placeholder="contact@company.com")
+            
+            with col3:
+                serv = st.selectbox("🎯 Service", 
+                                   ["SEO", "PPC", "Social Media", "Web Dev", "App Dev", "Branding"])
+                val = st.number_input("💰 Deal Value (₹)", step=5000, min_value=0)
+                stat = st.selectbox("📊 Status", 
+                                   ["New", "Contacted", "Proposal", "Negotiation", "Won", "Lost"])
+            
+            col4, col5 = st.columns(2)
+            with col4:
+                f_date = st.date_input("📅 Next Follow-Up", min_value=date.today())
+            with col5:
+                addr = st.text_area("📍 Address", placeholder="123 Business Street")
+            
+            rem = st.text_area("📝 Remarks", placeholder="Additional notes...")
+            
+            submit = st.form_submit_button("✨ Save Lead", use_container_width=True)
+            
+            if submit:
+                if comp and mob:
+                    new_lead_data = {
+                        "company_name": comp,
+                        "contact_person": cont,
+                        "mobile": mob,
+                        "alt_mobile": alt,
+                        "email": email,
+                        "gst_no": gst,
+                        "address": addr,
+                        "service_interest": serv,
+                        "projected_value": float(val),
+                        "status": stat,
+                        "next_followup": str(f_date),
+                        "date_added": datetime.now().strftime("%Y-%m-%d"),
+                        "assigned_to": st.session_state.get('username', 'Admin'),
+                        "remarks": rem
+                    }
+                    
+                    try:
+                        response = supabase.table("leads").insert(new_lead_data).execute()
+                        if response.data:
+                            st.success(f"✅ Lead **{comp}** added successfully!")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to save. Check your connection.")
+                    except Exception as e:
+                        st.error(f"❌ Error: {e}")
+                else:
+                    st.error("⚠️ Company Name and Mobile are required!")
+    
+    # --- Tab 4: LEAD DIRECTORY ---
+    with tab4:
+        st.markdown("### 📁 Lead Directory")
+        
+        df = fetch_leads()
+        
+        if not df.empty:
+            df['next_followup'] = pd.to_datetime(df['next_followup'], errors='coerce').dt.date
             
             # Filters
-            col_f1, col_f2 = st.columns(2)
-            with col_f1: 
-                filter_status = st.multiselect("Filter by Status", ["New", "Contacted", "Proposal", "Negotiation", "Won", "Lost"])
-            with col_f2: 
-                search_q = st.text_input("🔍 Search Company or Name")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                filter_status = st.multiselect(
+                    "Filter by Status", 
+                    ["New", "Contacted", "Proposal", "Negotiation", "Won", "Lost"],
+                    default=[]
+                )
+            with col2:
+                search_q = st.text_input("🔍 Search", placeholder="Company or contact name")
+            with col3:
+                st.metric("Total Leads", len(df))
             
             # Apply Filters
-            if filter_status: 
-                df = df[df['status'].isin(filter_status)]
-            if search_q: 
-                df = df[df['company_name'].str.contains(search_q, case=False) | 
-                        df['contact_person'].str.contains(search_q, case=False)]
+            filtered_df = df.copy()
+            if filter_status:
+                filtered_df = filtered_df[filtered_df['status'].isin(filter_status)]
+            if search_q:
+                filtered_df = filtered_df[
+                    filtered_df['company_name'].str.contains(search_q, case=False, na=False) | 
+                    filtered_df['contact_person'].str.contains(search_q, case=False, na=False)
+                ]
             
-            # Create WhatsApp Link Column
-            df['whatsapp_link'] = "https://wa.me/91" + df['mobile'].astype(str).str.replace(" ", "").str[-10:]
+            # WhatsApp Link
+            filtered_df['whatsapp_link'] = "https://wa.me/91" + filtered_df['mobile'].astype(str).str.replace(" ", "").str[-10:]
             
-            # 2. Display with Data Editor
+            # Data Editor
             edited_df = st.data_editor(
-                df,
+                filtered_df,
                 column_config={
                     "whatsapp_link": st.column_config.LinkColumn(
-                        "WhatsApp", display_text="Chat 💬"
+                        "💬 WhatsApp",
+                        display_text="Chat"
                     ),
                     "status": st.column_config.SelectboxColumn(
-                        "Status", options=["New", "Contacted", "Proposal", "Negotiation", "Won", "Lost"]
+                        "Status",
+                        options=["New", "Contacted", "Proposal", "Negotiation", "Won", "Lost"]
                     ),
-                    "next_followup": st.column_config.DateColumn("Next Call Date")
+                    "next_followup": st.column_config.DateColumn("Next Follow-up"),
+                    "projected_value": st.column_config.NumberColumn(
+                        "Value (₹)",
+                        format="₹%.0f"
+                    )
                 },
                 hide_index=True,
-                column_order=("company_name", "contact_person", "mobile", "whatsapp_link", "service_interest", "status", "next_followup", "remarks"),
+                column_order=(
+                    "company_name", "contact_person", "mobile", "whatsapp_link",
+                    "service_interest", "projected_value", "status", "next_followup", "remarks"
+                ),
                 use_container_width=True,
                 key="lead_editor"
             )
             
-            # 3. Save Changes to Supabase
-            if st.button("💾 Sync with Cloud Database"):
-                with st.spinner("Updating Cloud..."):
+            # Sync Button
+            if st.button("💾 Sync Changes to Cloud", use_container_width=True):
+                with st.spinner("Syncing..."):
                     try:
                         for index, row in edited_df.iterrows():
-                            # Prepare data for Supabase (convert row to dictionary)
                             update_data = row.to_dict()
-                            
-                            # Remove the temporary WhatsApp link column
                             if 'whatsapp_link' in update_data:
                                 del update_data['whatsapp_link']
-                            
-                            # Ensure date is a string for the database
                             update_data['next_followup'] = str(update_data['next_followup'])
-                            
-                            # Update the specific row using its ID
                             supabase.table("leads").update(update_data).eq("id", row['id']).execute()
-                        
-                        st.success("✅ Cloud Updated Successfully!")
+                        st.success("✅ Successfully synced to cloud!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"❌ Cloud Sync Error: {e}")
+                        st.error(f"❌ Sync failed: {e}")
         else:
-            st.info("No leads found in the cloud database.")
-
-    # 5. BULK UPLOAD
+            st.info("📝 No leads found. Add your first lead!")
+    
+  # --- Tab 5: BULK UPLOAD ---
     with tab5:
-        st.header("📥 Bulk Import")
-        csv = pd.DataFrame(columns=["company_name", "contact_person", "mobile", "service_interest", "projected_value", "status"]).to_csv(index=False).encode('utf-8')
-        st.download_button("⬇️ Download Template", csv, "template.csv", "text/csv")
-        upl = st.file_uploader("Upload CSV", type="csv")
-        if upl and st.button("Import Data"):
+        st.markdown("### 📥 Bulk Import Leads")
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.info("💡 **Tip:** Download the template, fill it with your leads, and upload it back!")
+        
+        with col2:
+            csv_template = pd.DataFrame(columns=[
+                "company_name", "contact_person", "mobile", "email",
+                "service_interest", "projected_value", "status", "remarks"
+            ]).to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "⬇️ Download Template",
+                csv_template,
+                "leads_template.csv",
+                "text/csv",
+                use_container_width=True
+            )
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        uploaded_file = st.file_uploader("📤 Upload CSV File", type="csv")
+        
+        if uploaded_file is not None:
             try:
-                d = pd.read_csv(upl)
-                d['date_added'] = datetime.now().strftime("%Y-%m-%d")
-                d['assigned_to'] = st.session_state['username']
-                d['next_followup'] = datetime.now().strftime("%Y-%m-%d") # Default to today
-                conn = get_connection()
-                d.to_sql('leads', conn, if_exists='append', index=False)
-                st.success("Import Successful!")
+                preview_df = pd.read_csv(uploaded_file)
+                st.markdown("#### 📋 Preview")
+                st.dataframe(preview_df, use_container_width=True)
+                
+                if st.button("✨ Import All Leads", use_container_width=True):
+                    try:
+                        preview_df['date_added'] = datetime.now().strftime("%Y-%m-%d")
+                        preview_df['assigned_to'] = st.session_state['username']
+                        preview_df['next_followup'] = datetime.now().strftime("%Y-%m-%d")
+                        
+                        success_count = 0
+                        for _, row in preview_df.iterrows():
+                            if save_lead(row.to_dict()):
+                                success_count += 1
+                        
+                        st.success(f"✅ Imported {success_count} leads successfully!")
+                        st.balloons()
+                        st.rerun()
+                    except Exception as import_error:
+                        st.error(f"❌ Import error: {import_error}")
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"❌ Error reading file: {e}")
 
-    # 6. ADMIN
+    # --- Tab 6: ADMIN ---
     with tab6:
         if st.session_state['role'] == "Admin":
-            st.header("⚙️ User Management")
+            st.markdown("### ⚙️ User Management")
+            
             with st.form("new_user"):
-                u = st.text_input("New Username")
-                p = st.text_input("New Password", type="password")
-                r = st.selectbox("Role", ["Staff", "Admin"])
-                if st.form_submit_button("Create User"):
-                    if add_user(u, p, r): st.success("User Created")
-                    else: st.error("User exists")
-            st.dataframe(pd.read_sql_query("SELECT username, role FROM users", get_connection()), use_container_width=True)
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    u = st.text_input("👤 Username", placeholder="john_doe")
+                with col2:
+                    p = st.text_input("🔒 Password", type="password", placeholder="********")
+                with col3:
+                    r = st.selectbox("🎭 Role", ["Staff", "Admin"])
+                
+                if st.form_submit_button("➕ Create User", use_container_width=True):
+                    if u and p:
+                        if add_user(u, p, r):
+                            st.success(f"✅ User **{u}** created successfully!")
+                        else:
+                            st.error("❌ Username already exists")
+                    else:
+                        st.error("⚠️ All fields required!")
+            
+            st.markdown("### 👥 Existing Users")
+            users_df = pd.read_sql_query("SELECT username, role FROM users", get_connection())
+            st.dataframe(users_df, use_container_width=True, hide_index=True)
         else:
-            st.warning("Admin Only")
+            st.warning("🔒 Admin Access Only")
