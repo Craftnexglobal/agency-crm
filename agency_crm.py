@@ -1,4 +1,46 @@
 import streamlit as st
+from supabase import create_client, Client
+
+# --- CLOUD DATABASE CONNECTION ---
+# Replace these with your actual Supabase details
+url: str = "https://hkifcumhbgfqszcgvrrw.supabase.co"
+key: str = "sb_publishable_-n7XYPCit-RvNs4lhE6IAQ_cQElRuHI"
+supabase: Client = create_client(url, key)
+
+# --- DATABASE HELPER FUNCTIONS ---
+
+def fetch_leads():
+    """Fetches all leads from the Supabase 'leads' table"""
+    try:
+        # This calls the Supabase API to get all data from the leads table
+        response = supabase.table("leads").select("*").execute()
+        # We convert the result into a Pandas DataFrame for the CRM to use
+        return pd.DataFrame(response.data)
+    except Exception as e:
+        st.error(f"Error fetching leads: {e}")
+        return pd.DataFrame() # Returns an empty table if there is an error
+
+def save_lead(data_dict):
+    """Saves a new lead dictionary to Supabase"""
+    try:
+        supabase.table("leads").insert(data_dict).execute()
+        return True
+    except Exception as e:
+        st.error(f"Error saving lead: {e}")
+        return False
+
+# Example: How to save a lead to the cloud
+def save_lead_to_cloud(data_dict):
+    try:
+        supabase.table("leads").insert(data_dict).execute()
+        st.success("Lead saved to Cloud!")
+    except Exception as e:
+        st.error(f"Cloud Error: {e}")
+
+# Example: How to fetch leads from the cloud
+def fetch_leads_from_cloud():
+    response = supabase.table("leads").select("*").execute()
+    return pd.DataFrame(response.data)
 import pandas as pd
 import sqlite3
 import plotly.express as px
@@ -230,44 +272,72 @@ else:
     with tab4:
         st.header("🗂️ Lead Directory")
         
-        # Filters
-        col_f1, col_f2 = st.columns(2)
-        with col_f1: filter_status = st.multiselect("Filter by Status", ["New", "Contacted", "Proposal", "Negotiation", "Won", "Lost"])
-        with col_f2: search_q = st.text_input("🔍 Search Company or Name")
+        # 1. Fetch data from Supabase Cloud
+        df = fetch_leads() # This uses the function we defined earlier
         
-        df = pd.read_sql_query("SELECT * FROM leads", get_connection())
-        
-        # Apply Filters
-        if filter_status: df = df[df['status'].isin(filter_status)]
-        if search_q: df = df[df['company_name'].str.contains(search_q, case=False) | df['contact_person'].str.contains(search_q, case=False)]
-        
-        # Create WhatsApp Link Column
-        # Assumes indian numbers. Adds 91 if missing, removes spaces.
-        df['whatsapp_link'] = "https://wa.me/91" + df['mobile'].astype(str).str.replace(" ", "").str[-10:]
-        
-        # Display with Clickable Links and Editing
-        edited_df = st.data_editor(
-            df,
-            column_config={
-                "whatsapp_link": st.column_config.LinkColumn(
-                    "WhatsApp", display_text="Chat 💬"
-                ),
-                "status": st.column_config.SelectboxColumn(
-                    "Status", options=["New", "Contacted", "Proposal", "Negotiation", "Won", "Lost"]
-                ),
-                "next_followup": st.column_config.DateColumn("Next Call Date")
-            },
-            hide_index=True,
-            column_order=("company_name", "contact_person", "mobile", "whatsapp_link", "service_interest", "status", "next_followup", "remarks"),
-            use_container_width=True
-        )
-        
-        if st.button("💾 Save Database Changes"):
-            conn = get_connection()
-            # Drop the link column before saving back to DB
-            save_df = edited_df.drop(columns=['whatsapp_link'])
-            save_df.to_sql('leads', conn, if_exists='replace', index=False)
-            st.success("Updated Successfully!")
+        if not df.empty:
+            # --- THE FIX: Convert strings to Date objects to prevent crashing ---
+            df['next_followup'] = pd.to_datetime(df['next_followup']).dt.date
+            
+            # Filters
+            col_f1, col_f2 = st.columns(2)
+            with col_f1: 
+                filter_status = st.multiselect("Filter by Status", ["New", "Contacted", "Proposal", "Negotiation", "Won", "Lost"])
+            with col_f2: 
+                search_q = st.text_input("🔍 Search Company or Name")
+            
+            # Apply Filters
+            if filter_status: 
+                df = df[df['status'].isin(filter_status)]
+            if search_q: 
+                df = df[df['company_name'].str.contains(search_q, case=False) | 
+                        df['contact_person'].str.contains(search_q, case=False)]
+            
+            # Create WhatsApp Link Column
+            df['whatsapp_link'] = "https://wa.me/91" + df['mobile'].astype(str).str.replace(" ", "").str[-10:]
+            
+            # 2. Display with Data Editor
+            edited_df = st.data_editor(
+                df,
+                column_config={
+                    "whatsapp_link": st.column_config.LinkColumn(
+                        "WhatsApp", display_text="Chat 💬"
+                    ),
+                    "status": st.column_config.SelectboxColumn(
+                        "Status", options=["New", "Contacted", "Proposal", "Negotiation", "Won", "Lost"]
+                    ),
+                    "next_followup": st.column_config.DateColumn("Next Call Date")
+                },
+                hide_index=True,
+                column_order=("company_name", "contact_person", "mobile", "whatsapp_link", "service_interest", "status", "next_followup", "remarks"),
+                use_container_width=True,
+                key="lead_editor"
+            )
+            
+            # 3. Save Changes to Supabase
+            if st.button("💾 Sync with Cloud Database"):
+                with st.spinner("Updating Cloud..."):
+                    try:
+                        for index, row in edited_df.iterrows():
+                            # Prepare data for Supabase (convert row to dictionary)
+                            update_data = row.to_dict()
+                            
+                            # Remove the temporary WhatsApp link column
+                            if 'whatsapp_link' in update_data:
+                                del update_data['whatsapp_link']
+                            
+                            # Ensure date is a string for the database
+                            update_data['next_followup'] = str(update_data['next_followup'])
+                            
+                            # Update the specific row using its ID
+                            supabase.table("leads").update(update_data).eq("id", row['id']).execute()
+                        
+                        st.success("✅ Cloud Updated Successfully!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Cloud Sync Error: {e}")
+        else:
+            st.info("No leads found in the cloud database.")
 
     # 5. BULK UPLOAD
     with tab5:
