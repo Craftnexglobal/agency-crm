@@ -169,13 +169,21 @@ st.markdown("""
         font-weight: 600;
         transition: all 0.3s ease;
         border: none;
+        color: #333333 !important;
     }
-    
+            
+    .stTabs [data-baseweb="tab"] span {
+        color: #333333 !important;  /* ADD THIS LINE */
+    }
     .stTabs [aria-selected="true"] {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white !important;
         transform: scale(1.05);
     }
+                .stTabs [aria-selected="true"] span {
+        color: white !important;  /* ADD THIS LINE */
+    }
+            
     
     /* Data Editor Styling */
     .stDataFrame {
