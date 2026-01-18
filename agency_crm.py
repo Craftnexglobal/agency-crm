@@ -230,43 +230,67 @@ else:
             for _, r in df[df['status'] == 'Won'].iterrows():
                 st.success(f"**{r['company_name']}**\n\n₹{r['projected_value']:,.0f}")
 
-    # 3. NEW LEAD (With Follow-up Date)
-    with tab3:
-        st.header("📝 Register New Lead")
-        with st.form("add_lead"):
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                comp = st.text_input("Company Name*")
-                cont = st.text_input("Contact Person")
-                gst = st.text_input("GST No.")
-            with c2:
-                mob = st.text_input("Mobile* (10 digits)")
-                alt = st.text_input("Alt Mobile")
-                email = st.text_input("Email")
-            with c3:
-                serv = st.selectbox("Service", ["SEO", "PPC", "Social Media", "Web Dev", "App Dev"])
-                val = st.number_input("Value (₹)", step=5000)
-                stat = st.selectbox("Status", ["New", "Contacted", "Proposal", "Negotiation", "Won", "Lost"])
-            
-            c4, c5 = st.columns(2)
-            with c4: 
-                f_date = st.date_input("Next Follow-Up Date", min_value=date.today())
-            with c5:
-                addr = st.text_area("Address")
-            
-            rem = st.text_area("Remarks")
-            
-            if st.form_submit_button("Save Lead"):
-                if comp and mob:
-                    conn = get_connection()
-                    conn.execute("""INSERT INTO leads 
-                        (company_name, contact_person, mobile, alt_mobile, email, gst_no, address, service_interest, projected_value, status, next_followup, date_added, assigned_to, remarks) 
-                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                        (comp, cont, mob, alt, email, gst, addr, serv, val, stat, f_date, datetime.now().strftime("%Y-%m-%d"), st.session_state['username'], rem))
-                    conn.commit()
-                    st.success("Lead Added!")
-                else:
-                    st.error("Company Name and Mobile are required!")
+    # --- Tab 3: New Lead ---
+with tab3:
+    st.header("📝 Register New Lead")
+    # clear_on_submit=True resets the form after success
+    with st.form("add_lead", clear_on_submit=True):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            comp = st.text_input("Company Name*")
+            cont = st.text_input("Contact Person")
+            gst = st.text_input("GST No.")
+        with c2:
+            mob = st.text_input("Mobile* (10 digits)")
+            alt = st.text_input("Alt Mobile")
+            email = st.text_input("Email")
+        with c3:
+            serv = st.selectbox("Service", ["SEO", "PPC", "Social Media", "Web Dev", "App Dev"])
+            val = st.number_input("Value (₹)", step=5000)
+            stat = st.selectbox("Status", ["New", "Contacted", "Proposal", "Negotiation", "Won", "Lost"])
+        
+        c4, c5 = st.columns(2)
+        with c4: 
+            f_date = st.date_input("Next Follow-Up Date", min_value=date.today())
+        with c5:
+            addr = st.text_area("Address")
+        
+        rem = st.text_area("Remarks")
+        
+        if st.form_submit_button("Save Lead"):
+            if comp and mob:
+                # 1. Create the data dictionary for Supabase
+                new_lead_data = {
+                    "company_name": comp,
+                    "contact_person": cont,
+                    "mobile": mob,
+                    "alt_mobile": alt,
+                    "email": email,
+                    "gst_no": gst,
+                    "address": addr,
+                    "service_interest": serv,
+                    "projected_value": float(val),
+                    "status": stat,
+                    "next_followup": str(f_date), # Convert date object to string
+                    "date_added": datetime.now().strftime("%Y-%m-%d"),
+                    "assigned_to": st.session_state.get('username', 'Admin'),
+                    "remarks": rem
+                }
+                
+                # 2. Use the Supabase client to insert the data
+                try:
+                    response = supabase.table("leads").insert(new_lead_data).execute()
+                    
+                    if response.data:
+                        st.success(f"✅ Lead for {comp} added to Cloud!")
+                        # This forces the app to refresh and fetch the new data
+                        st.rerun() 
+                    else:
+                        st.error("❌ Failed to save. Check your connection.")
+                except Exception as e:
+                    st.error(f"❌ Database Error: {e}")
+            else:
+                st.error("⚠️ Company Name and Mobile are required!")
 
     # 4. VIEW LEADS (User Friendly WhatsApp Link)
     with tab4:
